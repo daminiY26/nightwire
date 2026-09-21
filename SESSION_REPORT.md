@@ -116,3 +116,120 @@ turbo.json
 - **Layout paradigm:** three-pane desk — left log rail, center evidence ledger, right persistent chat panel
 - **Signature element:** the source trail — a monospace, teletype-style, timestamped strip under each signal card showing exactly which sources fed a detected gap
 - **Logo approach:** typographic wordmark, "Nightwire," with one geometric modification — an amber underline beneath "wire" only, standing in for a ticker-tape tick
+
+---
+
+## Session 2: Signal Cards, Read Path
+**Date:** 2026-09-14
+**Goal:** Render real signal cards end to end — through a defined, swappable data-source interface — so the ledger and desk log show real data instead of Session 1's empty state. Read-only. No chat wiring, no watch creation, no live bitget-signal/MCP integration — all explicitly deferred (see below).
+
+**Files added/changed:**
+- `packages/types/src/api.ts` — the generic types from Session 1's `index.ts`, moved here unchanged
+- `packages/types/src/signals.ts` — new: `SignalConfidence`, `SourceKind`, `SourceTrailEntry`, `SignalCard`, `Watch`
+- `packages/types/src/index.ts` — now barrels both `./api` and `./signals`
+- `apps/api/src/lib/signal-source.ts` — new: `SignalSource` interface + `getSignalSource()` factory (env-var-selected, throws on anything but `"fixture"`)
+- `apps/api/src/lib/signal-sources/fixture-signal-source.ts` — new: hand-written fixture data, mirrors `docs/design/preview.html`'s scenario, every entry tagged `source: "fixture"`
+- `apps/api/src/routes/watches.ts` — new: `GET /watches`, `GET /watches/:watchId/signals`
+- `apps/api/src/index.ts` — mounts `watchesRouter`
+- `apps/api/.env.example` — added `SIGNAL_SOURCE` (default `fixture`)
+- `apps/web/src/lib/api.ts` — new: server-side fetch helpers (`fetchWatches`, `fetchSignalCards`), `no-store` cache, callers must try/catch
+- `apps/web/src/components/signal-card.tsx` — new: `SignalCardView`, the source-trail signature element rendered for real
+- `apps/web/src/components/desk-shell.tsx` — now takes `watches`/`signalCards` props; desk log and ledger render real data; falls back to Session 1's exact empty-state copy when either array is empty
+- `apps/web/src/app/(desk)/desk/page.tsx` — fetches from apps/api server-side inside try/catch; degrades to empty state on failure rather than crashing
+
+**Current full file tree:**
+(regenerated via `find`, not recalled)
+```
+.github/workflows/ci.yml
+.gitignore
+README.md
+SESSION_REPORT.md
+apps/api/.env.example
+apps/api/package.json
+apps/api/railway.json
+apps/api/src/index.ts
+apps/api/src/lib/signal-source.ts
+apps/api/src/lib/signal-sources/fixture-signal-source.ts
+apps/api/src/lib/supabase.ts
+apps/api/src/routes/health.ts
+apps/api/src/routes/watches.ts
+apps/api/tsconfig.json
+apps/web/.env.example
+apps/web/components.json
+apps/web/middleware.ts
+apps/web/next.config.ts
+apps/web/package.json
+apps/web/postcss.config.mjs
+apps/web/public/logo.svg
+apps/web/src/app/(auth)/layout.tsx
+apps/web/src/app/(auth)/sign-in/page.tsx
+apps/web/src/app/(auth)/sign-up/page.tsx
+apps/web/src/app/(desk)/desk/page.tsx
+apps/web/src/app/(desk)/layout.tsx
+apps/web/src/app/auth/sign-out/route.ts
+apps/web/src/app/globals.css
+apps/web/src/app/layout.tsx
+apps/web/src/app/page.tsx
+apps/web/src/components/desk-shell.tsx
+apps/web/src/components/logo.tsx
+apps/web/src/components/signal-card.tsx
+apps/web/src/lib/api.ts
+apps/web/src/lib/supabase/client.ts
+apps/web/src/lib/supabase/middleware.ts
+apps/web/src/lib/supabase/server.ts
+apps/web/src/lib/utils.ts
+apps/web/tsconfig.json
+apps/web/vercel.json
+docs/design/preview.html
+package.json
+packages/config/package.json
+packages/config/src/design-tokens.ts
+packages/config/src/index.ts
+packages/config/tsconfig.json
+packages/types/package.json
+packages/types/src/api.ts
+packages/types/src/index.ts
+packages/types/src/signals.ts
+packages/types/tsconfig.json
+packages/ui/package.json
+packages/ui/src/badge.tsx
+packages/ui/src/button.tsx
+packages/ui/src/card.tsx
+packages/ui/src/index.ts
+packages/ui/src/input.tsx
+packages/ui/src/lib/utils.ts
+packages/ui/src/separator.tsx
+packages/ui/tsconfig.json
+pnpm-workspace.yaml
+turbo.json
+```
+
+**Dependencies:** none added this session. Everything runs on what Session 1 already declared.
+
+**Supabase schema state:** unchanged — still no custom tables. Watches/signal cards are NOT in Supabase; they come from apps/api's `SignalSource`, currently in-memory fixture data (nothing persisted anywhere yet).
+
+**Env vars required:** unchanged from Session 1, plus `SIGNAL_SOURCE` (apps/api, default `fixture`) — see updated `apps/api/.env.example`.
+
+**API endpoints live:**
+- `GET /health` (apps/api)
+- `GET /watches` (apps/api) — returns fixture watch list
+- `GET /watches/:watchId/signals` (apps/api) — returns fixture signal cards for that watch
+- `POST /auth/sign-out` (apps/web)
+
+**Known stubs/mocks/TODOs:**
+- **All carried over from Session 1** re: no live network verification this whole build — still true, still unresolved, still needs a real `pnpm install` in a networked environment.
+- **Signal data is 100% fixture, clearly labeled.** `FixtureSignalSource` returns hand-written data; every `SourceTrailEntry.source` is `"fixture"`, and `SignalCardView` renders a visible "fixture data" badge whenever a card is fixture-sourced. This is NOT a claim of working bitget-signal integration — don't let this get mistaken for that in the submission's Project Description.
+- **Live bitget-signal/MCP integration is still fully undesigned**, and it's more architecturally involved than initially assumed. New finding this session: Bitget's `bitget-mcp-server` (from `BitgetLimited/agent_hub`) **runs locally via stdio transport** — confirmed via web search this session (source: mcp.directory listing for Agent Hub). That means apps/api, if deployed to Railway as planned, can't treat it as a remote MCP server the way e.g. Anthropic's hosted-MCP-connector pattern expects. Realistic options for Session 3, none yet chosen:
+  1. apps/api spawns `bitget-mcp-server` as a local child process (stdio) using the MCP TypeScript SDK, and itself becomes the MCP client — feasible in Node/Express, but means apps/api's deploy target needs to be able to spawn that process (may complicate the Railway plan).
+  2. The actual demo runs through Claude Code / Claude Desktop directly (where a human or agent session has the MCP server attached locally), with our web app as a secondary viewer rather than the live orchestrator.
+  3. Some hybrid: apps/api pre-fetches/caches skill output on a schedule from a machine that does have the MCP server attached, and only serves cached results.
+  This wasn't resolved now because it's a real architecture fork with consequences for apps/api's runtime and deploy target, and this sandbox can't test any of the three paths. Flagging for a decision when picking Session 3's scope, rather than guessing.
+- **No watch creation, no chat.** The "+ New Watch" button and the chat input are both still `disabled` in `DeskShell` — intentionally out of this session's scope.
+- **`SignalSource.listSignalCards` takes a bare `watchId` string with no auth/ownership check** — fine for a single-fixture-watch demo, not fine once real users have real watches. Flag for whichever session adds persistence.
+
+**Assumptions carried into next session:**
+- Everything from Session 1's list still holds (sub-theme, LUI shape, full stack, pnpm/turborepo, Vercel/Railway, no-network sandbox).
+- Session 3 needs to pick one of the three live-integration paths above before writing more `signal-source` code — this is the biggest open decision in the project right now, bigger than any remaining UI work.
+- The chat/LUI panel wiring and the live signal source are likely two different sessions even once the architecture is chosen, per the ruleset's session-sizing guidance — flagging again rather than deciding unilaterally.
+
+**Style history:** no new UI-touching design decisions this session — `SignalCardView` and the updated `DeskShell` states apply Session 1's approved tokens directly (badge variants, mono source-trail styling, teal/red supports-thesis split) rather than introducing anything new. Nothing to log.
