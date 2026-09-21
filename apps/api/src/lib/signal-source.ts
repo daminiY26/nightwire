@@ -12,13 +12,20 @@ import type { SignalCard, Watch } from "@nightwire/types";
 export interface SignalSource {
   listWatches(): Promise<Watch[]>;
   listSignalCards(watchId: string): Promise<SignalCard[]>;
+  /**
+   * Given a free-text research question, produce a Watch + its SignalCard(s).
+   * Added in Session 3. FixtureSignalSource ignores the question and returns
+   * its one canned scenario; LiveSignalSource actually runs the bitget-signal
+   * + Claude orchestration loop — see lib/orchestrator/research-agent.ts.
+   */
+  runResearch(question: string): Promise<{ watch: Watch; signalCards: SignalCard[] }>;
 }
 
 /**
  * Picks the active implementation via SIGNAL_SOURCE (default "fixture").
- * Only "fixture" exists as of Session 2. This throws rather than silently
- * falling back, so a misconfigured env var fails loudly instead of quietly
- * serving fixture data under a "live" label.
+ * "fixture" (Session 2) and "live" (Session 3) exist. Anything else throws
+ * rather than silently falling back, so a misconfigured env var fails loudly
+ * instead of quietly serving fixture data under a "live" label.
  */
 export async function getSignalSource(): Promise<SignalSource> {
   const mode = process.env.SIGNAL_SOURCE ?? "fixture";
@@ -28,8 +35,13 @@ export async function getSignalSource(): Promise<SignalSource> {
     return new FixtureSignalSource();
   }
 
+  if (mode === "live") {
+    const { LiveSignalSource } = await import("./signal-sources/live-signal-source.js");
+    return new LiveSignalSource();
+  }
+
   throw new Error(
-    `SIGNAL_SOURCE="${mode}" is not implemented yet. Only "fixture" exists as of Session 2 — ` +
-      `live bitget-signal integration is Session 3's job. See SESSION_REPORT.md, "Known stubs/mocks/TODOs".`
+    `SIGNAL_SOURCE="${mode}" is not implemented. Valid values are "fixture" and "live". ` +
+      `See SESSION_REPORT.md, "Known stubs/mocks/TODOs".`
   );
 }

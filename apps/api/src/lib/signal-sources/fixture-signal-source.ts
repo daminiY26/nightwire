@@ -67,4 +67,16 @@ export class FixtureSignalSource implements SignalSource {
   async listSignalCards(watchId: string): Promise<SignalCard[]> {
     return SIGNAL_CARDS[watchId] ?? [];
   }
+
+  /**
+   * Deliberately ignores `question` — this is the fixture source. It always
+   * returns the one canned NVDA scenario so the read path (Session 2) and
+   * the research action (Session 3) agree on what data looks like in
+   * fixture mode. See LiveSignalSource for the version that actually uses
+   * the question.
+   */
+  async runResearch(_question: string): Promise<{ watch: Watch; signalCards: SignalCard[] }> {
+    const watch = WATCHES[0];
+    return { watch, signalCards: SIGNAL_CARDS[watch.id] ?? [] };
+  }
 }

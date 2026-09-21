@@ -233,3 +233,128 @@ turbo.json
 - The chat/LUI panel wiring and the live signal source are likely two different sessions even once the architecture is chosen, per the ruleset's session-sizing guidance — flagging again rather than deciding unilaterally.
 
 **Style history:** no new UI-touching design decisions this session — `SignalCardView` and the updated `DeskShell` states apply Session 1's approved tokens directly (badge variants, mono source-trail styling, teal/red supports-thesis split) rather than introducing anything new. Nothing to log.
+
+---
+
+## Session 3: Live Orchestration Engine
+**Date:** 2026-09-14
+**Goal:** Build the real bitget-signal + Claude orchestration loop behind `SIGNAL_SOURCE=live`, per the person's explicit choice: apps/api owns the MCP connection itself. Backend only — no chat UI wiring (still Session 4+, per Session 2's flag).
+
+**Important correction to Session 2's report:** Session 2 concluded the Bitget MCP server "runs locally via stdio transport" and that apps/api couldn't treat it as remote. That was true of `bitget-mcp-server` (Bitget Agent Hub's *trading* tools — account, orders, positions) but **not** of `bitget-signal` (the 5 *research* skills this project actually needs: macro-analyst, market-intel, news-briefing, sentiment-analyst, technical-analysis). Re-verified this session via glama.ai's own listing: `bitget-signal` is installed via `npx @bitget-ai/bitget-signal --target <tool>`, which registers **the public bitget-signal MCP server (HTTP transport)** — no account, no API key, no local process to spawn. Session 2 conflated the two servers. Corrected in `apps/api/src/lib/mcp/bitget-signal-client.ts`'s own doc comment so this doesn't get re-litigated later.
+
+**What's still genuinely unresolved:** the exact HTTP endpoint URL. Bitget's installer writes it into the target tool's MCP config at install time; it isn't published as a static doc URL, and it didn't surface through glama.ai's overview page, schema page (server "not inspected yet" — no tools/schema listed there either), or general web search. This session's code reads the URL from `BITGET_SIGNAL_MCP_URL` and refuses to guess it — see the doc comment in `bitget-signal-client.ts` for the exact one-time step to get it (run the installer once on a networked machine, read the URL back out of that tool's MCP config). Exact tool names/input schemas the server exposes are similarly unconfirmed — the code doesn't hardcode any tool name; it fetches whatever `listTools()` returns at runtime and hands all of it to Claude, so this isn't blocking, but it does mean the system prompt can only describe tools generically.
+
+**Files added/changed:**
+- `packages/types/src/signals.ts` — `SourceKind` gains `"live"`; `SourceTrailEntry` gains optional `toolName`
+- `apps/api/src/lib/mcp/bitget-signal-client.ts` — new: MCP client over `StreamableHTTPClientTransport`, cached connection, `listBitgetSignalTools()`, `callBitgetSignalTool()`
+- `apps/api/src/lib/orchestrator/tools.ts` — new: `EMIT_SIGNAL_CARD_TOOL` (local structured-output tool, not from MCP) + its input type
+- `apps/api/src/lib/orchestrator/research-agent.ts` — new: the actual tool-use loop against `claude-sonnet-5` (max 8 turns), converts MCP tools → `Anthropic.Tool[]`, includes an anti-fabrication check (see below)
+- `apps/api/src/lib/signal-sources/live-signal-source.ts` — new: `SignalSource` implementation; `listWatches`/`listSignalCards` intentionally return `[]` (no persistence layer exists — see stubs below), `runResearch` calls the real agent loop
+- `apps/api/src/lib/signal-source.ts` — `SignalSource` interface gains `runResearch()`; factory now also handles `SIGNAL_SOURCE=live`
+- `apps/api/src/lib/signal-sources/fixture-signal-source.ts` — gains `runResearch()`, ignores the question, returns the same canned scenario
+- `apps/api/src/routes/research.ts` — new: `POST /research { question }` → `{ watch, signalCards }`
+- `apps/api/src/index.ts` — mounts `researchRouter` at `/research`
+- `apps/api/package.json` — adds `@anthropic-ai/sdk`, `@modelcontextprotocol/sdk`
+- `apps/api/.env.example` — adds `ANTHROPIC_API_KEY`, `BITGET_SIGNAL_MCP_URL`, updates `SIGNAL_SOURCE` comment
+- `apps/web/src/components/signal-card.tsx` — new `sourceLabel()` resolver: falls back to `entry.toolName` for `"live"` entries instead of a fixed label map
+
+**A safety feature worth calling out explicitly:** the agent loop tracks every bitget-signal tool call it actually makes (`toolCallLog`). When Claude's final `emit_signal_card` call cites a source, `research-agent.ts` cross-checks the cited `toolName` against that log and **drops any entry that doesn't match a real call** (logs a warning, and if every cited entry gets dropped, forces `confidence: "low"` and appends a note to `gapSummary`). This stops the model from fabricating a source in its own structured output — which would otherwise be exactly the kind of quiet failure this whole product is supposed to catch in *other* people's research.
+
+**Current full file tree:**
+(regenerated via `find`, not recalled)
+```
+.github/workflows/ci.yml
+.gitignore
+README.md
+SESSION_REPORT.md
+apps/api/.env.example
+apps/api/package.json
+apps/api/railway.json
+apps/api/src/index.ts
+apps/api/src/lib/mcp/bitget-signal-client.ts
+apps/api/src/lib/orchestrator/research-agent.ts
+apps/api/src/lib/orchestrator/tools.ts
+apps/api/src/lib/signal-source.ts
+apps/api/src/lib/signal-sources/fixture-signal-source.ts
+apps/api/src/lib/signal-sources/live-signal-source.ts
+apps/api/src/lib/supabase.ts
+apps/api/src/routes/health.ts
+apps/api/src/routes/research.ts
+apps/api/src/routes/watches.ts
+apps/api/tsconfig.json
+apps/web/.env.example
+apps/web/components.json
+apps/web/middleware.ts
+apps/web/next.config.ts
+apps/web/package.json
+apps/web/postcss.config.mjs
+apps/web/public/logo.svg
+apps/web/src/app/(auth)/layout.tsx
+apps/web/src/app/(auth)/sign-in/page.tsx
+apps/web/src/app/(auth)/sign-up/page.tsx
+apps/web/src/app/(desk)/desk/page.tsx
+apps/web/src/app/(desk)/layout.tsx
+apps/web/src/app/auth/sign-out/route.ts
+apps/web/src/app/globals.css
+apps/web/src/app/layout.tsx
+apps/web/src/app/page.tsx
+apps/web/src/components/desk-shell.tsx
+apps/web/src/components/logo.tsx
+apps/web/src/components/signal-card.tsx
+apps/web/src/lib/api.ts
+apps/web/src/lib/supabase/client.ts
+apps/web/src/lib/supabase/middleware.ts
+apps/web/src/lib/supabase/server.ts
+apps/web/src/lib/utils.ts
+apps/web/tsconfig.json
+apps/web/vercel.json
+docs/design/preview.html
+package.json
+packages/config/package.json
+packages/config/src/design-tokens.ts
+packages/config/src/index.ts
+packages/config/tsconfig.json
+packages/types/package.json
+packages/types/src/api.ts
+packages/types/src/index.ts
+packages/types/src/signals.ts
+packages/types/tsconfig.json
+packages/ui/package.json
+packages/ui/src/badge.tsx
+packages/ui/src/button.tsx
+packages/ui/src/card.tsx
+packages/ui/src/index.ts
+packages/ui/src/input.tsx
+packages/ui/src/lib/utils.ts
+packages/ui/src/separator.tsx
+packages/ui/tsconfig.json
+pnpm-workspace.yaml
+turbo.json
+```
+
+**Dependencies added:** `@anthropic-ai/sdk@^0.93.0`, `@modelcontextprotocol/sdk@^1.29.0` (apps/api) — both version-pinned from web search this session (npm/GitHub sources, current as of ~mid-2026); confirm exact patch on first real `pnpm install`. SDK usage pattern (`Anthropic.Tool[]`, `Anthropic.MessageParam[]`, `Anthropic.ToolResultBlockParam[]`, the `messages.create` → check `stop_reason === "tool_use"` → loop pattern) was cross-checked against an Anthropic-sourced example (docs.deno.com/examples/anthropic_tool_use, mirroring Anthropic's own cookbook) found this session — high confidence on shape correctness, zero confidence it's been run.
+
+**Supabase schema state:** unchanged — still no custom tables.
+
+**Env vars required:** everything from Sessions 1–2, plus (apps/api, required only when `SIGNAL_SOURCE=live`): `ANTHROPIC_API_KEY`, `BITGET_SIGNAL_MCP_URL`.
+
+**API endpoints live:**
+- `GET /health`, `GET /watches`, `GET /watches/:watchId/signals` (unchanged from Session 2)
+- `POST /research` (apps/api) — new. Body `{ "question": string }` → `{ data: { watch, signalCards }, error: null }`. In fixture mode, ignores the question and returns the canned scenario; in live mode, runs the full agent loop and can fail with a 502 + `{ code: "research_failed", message }` if the MCP server or Anthropic API call fails.
+- `POST /auth/sign-out` (apps/web, unchanged)
+
+**Known stubs/mocks/TODOs:**
+- **Still no live network verification anywhere in this build.** Nothing in `research-agent.ts` or `bitget-signal-client.ts` has actually talked to Bitget's server or the Anthropic API — this sandbox still has no network. This is the highest-risk unverified code in the project so far, precisely because it's the part that can't be sanity-checked by reading it carefully; it needs an actual run.
+- **`BITGET_SIGNAL_MCP_URL` has no known value yet.** Getting it requires a one-time manual step in a networked environment — see the doc comment in `bitget-signal-client.ts`. Live mode will throw a clear error until this is set; it won't silently do anything wrong.
+- **No persistence.** `LiveSignalSource.listWatches()`/`listSignalCards()` return `[]` always — a live research run's result only exists in the `POST /research` response, nothing is saved. Refreshing the desk page after a live run would lose it. This needs a real decision (Supabase tables, presumably) in a future session, not a quick in-memory-cache patch that would just move the honesty problem around.
+- **Tool-name-to-badge mapping is generic.** Since exact bitget-signal tool names are unconfirmed, the UI shows whatever literal tool name Claude called (via `toolName`) rather than a polished label like "macro-analyst." Cosmetic, easy to fix once real tool names are known — not worth guessing now and risking a wrong-but-confident-looking label.
+- **The system prompt describes tools generically** (no hardcoded tool names) since exact ones aren't confirmed. Once `BITGET_SIGNAL_MCP_URL` is set and `listTools()` can actually run, it's worth checking whether the model needs more specific guidance per tool (e.g., which one to reach for on a macro-vs-news question) — that's a fast follow-up, not a blocker.
+- **No rate limiting, no request timeout, no caching** on `POST /research` — every call is a full fresh agent run against the live Anthropic API. Fine for a hackathon demo, not fine at any real traffic.
+- **`MAX_TURNS = 8`** in `research-agent.ts` is a guess, not a tuned value — if the real tool set needs more back-and-forth to converge, raise it; if the loop reliably converges in 2-3 turns, consider lowering it to fail faster on a genuinely stuck run.
+
+**Assumptions carried into next session:**
+- Live-integration architecture is now settled: apps/api is the MCP client, connecting to bitget-signal's public HTTP server directly — no subprocess spawning, no separate always-on Claude Code session. This is simpler to deploy on Railway than the original stdio assumption implied.
+- Session 4 (or whichever session tackles it) still needs to: (a) get a real `BITGET_SIGNAL_MCP_URL` and actually run this end to end once, (b) wire the chat panel to call `POST /research` and show the result, and (c) decide on persistence. Per the ruleset's session-sizing guidance, that's plausibly 2-3 more sessions, not one — flagging rather than deciding unilaterally, same as last time.
+- The demo's one required "complete research task, question → actionable insight" (per the hackathon submission requirements) can now be either the fixture path (guaranteed to work, zero live-service risk) or the live path (the real pitch, but untested end to end) — worth deciding deliberately which one anchors the actual submission demo, ideally after live mode has been run at least once for real.
+
+**Style history:** no UI-touching design decisions this session (backend-only). Nothing to log.

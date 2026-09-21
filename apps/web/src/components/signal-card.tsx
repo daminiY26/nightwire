@@ -1,4 +1,4 @@
-import type { SignalCard } from "@nightwire/types";
+import type { SignalCard, SourceTrailEntry } from "@nightwire/types";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@nightwire/ui";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +9,19 @@ const SOURCE_LABEL: Record<string, string> = {
   manual: "manual",
   fixture: "fixture",
 };
+
+/**
+ * "live" entries carry the real MCP tool name in toolName rather than a
+ * fixed SourceKind, since the exact tool names bitget-signal exposes
+ * weren't independently confirmed at build time (see SESSION_REPORT.md,
+ * Session 3). Falls back to the coarse label for everything else.
+ */
+function sourceLabel(entry: SourceTrailEntry): string {
+  if (entry.source === "live" && entry.toolName) {
+    return entry.toolName;
+  }
+  return SOURCE_LABEL[entry.source] ?? entry.source;
+}
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
@@ -51,7 +64,7 @@ export function SignalCardView({ card }: { card: SignalCard }) {
                     entry.supportsThesis ? "text-ledger-teal" : "text-wire-red"
                   )}
                 >
-                  {SOURCE_LABEL[entry.source] ?? entry.source}
+                  {sourceLabel(entry)}
                 </span>
                 <span className="text-paper-fog/80">{entry.summary}</span>
               </li>
