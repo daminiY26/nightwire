@@ -394,3 +394,126 @@ turbo.json
 - Next real milestones, in rough priority order: (1) get real `BITGET_SIGNAL_MCP_URL` + `ANTHROPIC_API_KEY` and run `SIGNAL_SOURCE=live` for the first time ever, outside this sandbox; (2) decide on persistence if the submission wants a watch to survive a page refresh; (3) polish pass on the demo scenario specifically for the recording/screenshot the submission needs. None of these were started this session — flagging rather than assuming which one comes next.
 
 **Style history:** no new tokens or layout decisions — new UI states (chat bubbles, clickable watch rail items, loading/error styling) all compose Session 1's existing palette and radius tokens. Nothing to log.
+
+---
+
+## Session 5: Persistence + Inter-Service Auth
+**Date:** 2026-09-14
+**Goal:** A watch survives a page refresh. Chosen over the other two options on the table (getting real live-mode credentials — not buildable in this sandbox; demo polish — premature before this existed) because it was the largest real gap flagged in every report since Session 2, and it's genuinely one feature even though it touches schema, both apps, and a new cross-service auth path: none of those pieces are independently useful without the others.
+
+**A gap this session found, not just filled:** apps/api had no concept of *which user* was calling it — Session 1 built full Supabase auth, but only in apps/web. apps/api's own `SUPABASE_SERVICE_ROLE_KEY` client (from Session 1) has sat unused this whole time because nothing needed per-user identity until persistence did. This session adds that: apps/web forwards the caller's Supabase access token to apps/api on every request that needs it, and apps/api verifies it and uses it to build a request-scoped client that Postgres RLS enforces against — not a hand-rolled `user_id` filter.
+
+**Files added:**
+- `supabase/migrations/20260914000000_create_watches_and_signal_cards.sql` — `watches` + `signal_cards` tables, RLS scoped to `auth.uid() = user_id`, `source_trail` stored as `jsonb` (denormalized on purpose — never queried independently of its parent card)
+- `apps/api/src/lib/auth-middleware.ts` — `requireAuth`: verifies the `Authorization: Bearer` token, attaches `req.userId` and `req.db` (a client scoped to that user, built with the anon key + their token — RLS does the enforcement, not this code)
+- `apps/api/src/lib/db/watches-repo.ts` — `saveResearchResult`, `listWatchesForUser`, `listSignalCardsForWatch`; maps between the DB's snake_case rows and `@nightwire/types`' camelCase shapes
+
+**Files changed:**
+- `apps/api/src/routes/research.ts` — now behind `requireAuth`; persists the result via `saveResearchResult` after a successful `runResearch` call, for *either* signal source (fixture-mode results are real per-user rows now too)
+- `apps/api/src/routes/watches.ts` — now behind `requireAuth`; reads from `watches-repo.ts` instead of calling `SignalSource.listWatches`/`listSignalCards` — see the note on `signal-source.ts` below
+- `apps/api/src/lib/signal-source.ts` — doc comment added: `listWatches`/`listSignalCards` are no longer called by any route as of this session. Left in the interface (FixtureSignalSource's is still a handy fixture-shape sanity check) rather than deleted — flagged as a live inconsistency for a future session to resolve one way or the other, not silently carried forward.
+- `apps/api/.env.example` — added `SUPABASE_ANON_KEY` (needed by the new middleware)
+- `apps/web/src/lib/api.ts` — `fetchWatches`/`fetchSignalCards` now take an `accessToken` param and send it as a Bearer header; doc comment updated
+- `apps/web/src/app/(desk)/desk/page.tsx` — now also calls `getSession()` (in addition to the existing `getUser()` auth gate) purely to read the raw `access_token` to forward — commented on why both calls exist, since it'd be easy to later "simplify" this into just one and accidentally weaken the auth gate
+- `apps/web/src/components/desk-shell.tsx` — `handleAsk` now fetches the current session token client-side (via the browser Supabase client) before calling `POST /research`, and surfaces a clear error if there isn't one (expired session); doc comment updated to describe persistence instead of "no persistence yet"
+- `README.md` — rewritten; was still describing Session 1's state. Added the migration step, `SUPABASE_ANON_KEY`, and dropped the stale "this is Session 1, that's Session 2" framing in favor of pointing to this file as the source of truth on current state
+
+**Current full file tree:**
+(regenerated via `find`, not recalled)
+```
+.github/workflows/ci.yml
+.gitignore
+README.md
+SESSION_REPORT.md
+apps/api/.env.example
+apps/api/package.json
+apps/api/railway.json
+apps/api/src/index.ts
+apps/api/src/lib/auth-middleware.ts
+apps/api/src/lib/db/watches-repo.ts
+apps/api/src/lib/mcp/bitget-signal-client.ts
+apps/api/src/lib/orchestrator/research-agent.ts
+apps/api/src/lib/orchestrator/tools.ts
+apps/api/src/lib/signal-source.ts
+apps/api/src/lib/signal-sources/fixture-signal-source.ts
+apps/api/src/lib/signal-sources/live-signal-source.ts
+apps/api/src/lib/supabase.ts
+apps/api/src/routes/health.ts
+apps/api/src/routes/research.ts
+apps/api/src/routes/watches.ts
+apps/api/tsconfig.json
+apps/web/.env.example
+apps/web/components.json
+apps/web/middleware.ts
+apps/web/next.config.ts
+apps/web/package.json
+apps/web/postcss.config.mjs
+apps/web/public/logo.svg
+apps/web/src/app/(auth)/layout.tsx
+apps/web/src/app/(auth)/sign-in/page.tsx
+apps/web/src/app/(auth)/sign-up/page.tsx
+apps/web/src/app/(desk)/desk/page.tsx
+apps/web/src/app/(desk)/layout.tsx
+apps/web/src/app/auth/sign-out/route.ts
+apps/web/src/app/globals.css
+apps/web/src/app/layout.tsx
+apps/web/src/app/page.tsx
+apps/web/src/components/desk-shell.tsx
+apps/web/src/components/logo.tsx
+apps/web/src/components/signal-card.tsx
+apps/web/src/lib/api.ts
+apps/web/src/lib/supabase/client.ts
+apps/web/src/lib/supabase/middleware.ts
+apps/web/src/lib/supabase/server.ts
+apps/web/src/lib/utils.ts
+apps/web/tsconfig.json
+apps/web/vercel.json
+docs/design/preview.html
+package.json
+packages/config/package.json
+packages/config/src/design-tokens.ts
+packages/config/src/index.ts
+packages/config/tsconfig.json
+packages/types/package.json
+packages/types/src/api.ts
+packages/types/src/index.ts
+packages/types/src/signals.ts
+packages/types/tsconfig.json
+packages/ui/package.json
+packages/ui/src/badge.tsx
+packages/ui/src/button.tsx
+packages/ui/src/card.tsx
+packages/ui/src/index.ts
+packages/ui/src/input.tsx
+packages/ui/src/lib/utils.ts
+packages/ui/src/separator.tsx
+packages/ui/tsconfig.json
+pnpm-workspace.yaml
+supabase/migrations/20260914000000_create_watches_and_signal_cards.sql
+turbo.json
+```
+
+**Dependencies added:** none — `@supabase/supabase-js` (apps/api) and `@supabase/ssr` (apps/web) already covered everything this session needed.
+
+**Supabase schema state:** no longer empty. `public.watches` and `public.signal_cards`, both RLS-scoped to `auth.uid() = user_id`, defined in the migration file above. **Not yet run against any real database** — same "written but never executed" status as everything else in this build; see README for the one-time step to apply it.
+
+**Env vars required:** everything from Sessions 1–3, plus `SUPABASE_ANON_KEY` on apps/api (Session 5, always required now — not conditional on `SIGNAL_SOURCE`).
+
+**API endpoints live:**
+- `GET /health` — unchanged, still the only unauthenticated route
+- `GET /watches`, `GET /watches/:watchId/signals` — **now require** `Authorization: Bearer <token>`; return the calling user's persisted data (was: fixture's global canned list / empty for live mode)
+- `POST /research` — **now requires** `Authorization: Bearer <token>` (previously open); persists its result under the calling user before returning it
+- `POST /auth/sign-out` (apps/web) — unchanged
+
+**Known stubs/mocks/TODOs:**
+- **The migration has never been run.** Nothing in this sandbox can reach a real Supabase project. Every piece of code that touches `watches`/`signal_cards` is written against the schema as designed, not tested against it.
+- **No update/delete policies or endpoints.** You can create a watch and its cards; nothing lets you rename, delete, or edit one. Intentional scope cut, noted in the migration file's own comment so it doesn't look like an oversight later.
+- **`listWatches`/`listSignalCards` on `SignalSource` are now dead code at the route level** — see the note added to `signal-source.ts`. Still implemented by both `FixtureSignalSource` and `LiveSignalSource`, called by nothing. Worth a deliberate cleanup decision in a future session (remove from the interface, or find a real use — e.g. a "preview without saving" mode) rather than leaving it ambiguous indefinitely.
+- **Testing `POST /research` or `GET /watches` outside the UI (e.g. via curl) now requires a real Supabase access token**, not just any request. Simplest way to get one for manual testing: sign in through the actual web UI and copy the token out of the browser's network tab or application storage, or use the Supabase JS client's `signInWithPassword` directly. Didn't add a dedicated dev/test-token endpoint — that's a deliberately unlocked door in a project whose whole pitch is trustworthy data handling, not something to add casually.
+- **No token-refresh edge case testing.** `@supabase/ssr`'s browser client is documented to auto-refresh tokens in the background, so `getSession()` should normally return a live token — but "should, per documentation" and "verified in this build" are different things, consistent with everything else here.
+
+**Assumptions carried into next session:**
+- The product's data model is now real: signing in, asking questions, and seeing a persistent desk log across sessions is the actual intended experience, not a stateless demo trick. That changes what "the demo" should show — probably worth showing a *second* login/refresh to prove persistence, not just one research call.
+- Remaining real milestones, unchanged in substance from Session 4's list, now minus persistence: (1) get real `BITGET_SIGNAL_MCP_URL` + `ANTHROPIC_API_KEY` and run `SIGNAL_SOURCE=live` for the first time; (2) run the migration against a real Supabase project and confirm the whole read/write path actually works; (3) demo-specific polish. (1) and (2) are both "first real contact with a live service" moments and probably should happen together, in one sitting, rather than separately — flagging that as a suggestion, not a decision made here.
+
+**Style history:** no UI-touching design decisions this session. Nothing to log.

@@ -6,12 +6,16 @@ import type { ApiResponse, SignalCard, Watch } from "@nightwire/types";
  * Component) for the interactive chat → POST /research call — that one
  * runs in the browser, which is why apps/api's CORS middleware
  * (WEB_ORIGIN, set up in Session 1) actually matters now; it was inert
- * until this session.
+ * until this session. Session 5: apps/api now requires a valid Supabase
+ * access token on every route these two hit — callers must pass one.
  */
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
-export async function fetchWatches(): Promise<Watch[]> {
-  const res = await fetch(`${API_URL}/watches`, { cache: "no-store" });
+export async function fetchWatches(accessToken: string): Promise<Watch[]> {
+  const res = await fetch(`${API_URL}/watches`, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
   if (!res.ok) {
     throw new Error(`GET /watches failed: ${res.status}`);
   }
@@ -19,8 +23,11 @@ export async function fetchWatches(): Promise<Watch[]> {
   return body.data ?? [];
 }
 
-export async function fetchSignalCards(watchId: string): Promise<SignalCard[]> {
-  const res = await fetch(`${API_URL}/watches/${watchId}/signals`, { cache: "no-store" });
+export async function fetchSignalCards(accessToken: string, watchId: string): Promise<SignalCard[]> {
+  const res = await fetch(`${API_URL}/watches/${watchId}/signals`, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
   if (!res.ok) {
     throw new Error(`GET /watches/${watchId}/signals failed: ${res.status}`);
   }
