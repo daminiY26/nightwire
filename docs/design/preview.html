@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nightwire — design preview (mockup, not the live app)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,600;0,700;1,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+  rel="stylesheet"
+/>
+<style>
+  :root {
+    --dusk-ledger: #171b2e;
+    --slate-wire: #232a44;
+    --paper-fog: #e7e3d8;
+    --lamp-amber: #e8a33d;
+    --ledger-teal: #4fa6a0;
+    --wire-red: #c1554a;
+    --radius-card: 8px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--dusk-ledger);
+    color: var(--paper-fog);
+    font-family: "IBM Plex Sans", sans-serif;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .mockup-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background: var(--lamp-amber);
+    color: var(--dusk-ledger);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: center;
+    padding: 4px;
+  }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 220px 1fr 320px;
+    height: 100vh;
+    padding-top: 24px;
+  }
+
+  aside, main {
+    padding: 16px;
+    overflow-y: auto;
+  }
+
+  .rail { border-right: 1px solid var(--slate-wire); display: flex; flex-direction: column; }
+  .chat { border-left: 1px solid var(--slate-wire); display: flex; flex-direction: column; }
+
+  .logo {
+    font-family: "Newsreader", serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 22px;
+    margin-bottom: 24px;
+  }
+  .logo span { color: var(--lamp-amber); border-bottom: 2px solid var(--lamp-amber); padding-bottom: 2px; }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(231, 227, 216, 0.5);
+    margin: 0 0 8px 0;
+  }
+
+  .watch-item {
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: var(--radius-card);
+    margin-bottom: 4px;
+    color: rgba(231, 227, 216, 0.85);
+  }
+  .watch-item.active { background: var(--slate-wire); }
+
+  .rail-footer {
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--slate-wire);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: rgba(231, 227, 216, 0.6);
+  }
+
+  .thesis h1 {
+    font-family: "Newsreader", serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 22px;
+    margin: 0 0 20px 0;
+  }
+
+  .card {
+    background: rgba(35, 42, 68, 0.6);
+    border: 1px solid var(--slate-wire);
+    border-radius: var(--radius-card);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .card-title { font-family: "Newsreader", serif; font-size: 17px; margin: 0 0 4px 0; }
+  .card-sub { font-size: 13px; color: rgba(231, 227, 216, 0.65); margin: 0 0 12px 0; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 500;
+    margin-right: 6px;
+  }
+  .badge.gap { background: var(--lamp-amber); color: var(--dusk-ledger); }
+  .badge.verified { background: var(--ledger-teal); color: var(--dusk-ledger); }
+  .badge.against { background: var(--wire-red); color: var(--paper-fog); }
+
+  .trail {
+    margin-top: 14px;
+    border-top: 1px dashed var(--slate-wire);
+    padding-top: 12px;
+  }
+  .trail-label { font-family: "IBM Plex Mono", monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(231,227,216,0.4); margin-bottom: 8px; }
+  .trail-entry { display: flex; gap: 10px; font-family: "IBM Plex Mono", monospace; font-size: 12px; padding: 4px 0; }
+  .trail-time { color: rgba(231,227,216,0.4); flex-shrink: 0; }
+  .trail-source { color: var(--ledger-teal); flex-shrink: 0; }
+  .trail-text { color: rgba(231,227,216,0.8); }
+
+  .chat-bubble { background: var(--slate-wire); border-radius: var(--radius-card); padding: 10px 12px; font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
+  .chat-bubble.user { background: transparent; border: 1px solid var(--slate-wire); }
+
+  .chat-input {
+    margin-top: auto;
+    display: flex;
+    gap: 8px;
+  }
+  .chat-input input {
+    flex: 1;
+    background: var(--dusk-ledger);
+    border: 1px solid var(--slate-wire);
+    border-radius: var(--radius-card);
+    color: var(--paper-fog);
+    padding: 8px 10px;
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 13px;
+  }
+  .chat-input button {
+    background: var(--lamp-amber);
+    color: var(--dusk-ledger);
+    border: none;
+    border-radius: var(--radius-card);
+    padding: 8px 14px;
+    font-family: "IBM Plex Sans", sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+  <div class="mockup-banner">Design mockup — sample data — Session 1 static preview, not the live app</div>
+
+  <div class="shell">
+    <aside class="rail">
+      <div class="logo">Night<span>wire</span></div>
+      <p class="eyebrow">Desk log</p>
+      <div class="watch-item active">NVDA guidance gap</div>
+      <div class="watch-item">Fed minutes vs. rate path</div>
+      <div class="watch-item">rToken weekend drift</div>
+      <div class="rail-footer">
+        <span>trader@desk.com</span>
+        <span>Sign out</span>
+      </div>
+    </aside>
+
+    <main>
+      <div class="thesis">
+        <p class="eyebrow">Active thesis</p>
+        <h1>Does NVDA's Q3 guidance contradict what the market already priced in?</h1>
+      </div>
+
+      <div class="card">
+        <p class="card-title">Guidance implies a gap the print hasn't closed</p>
+        <p class="card-sub">Detected from 3 sources · updated 2m ago</p>
+        <span class="badge gap">Gap detected</span>
+        <span class="badge verified">2 verified</span>
+        <span class="badge against">1 against thesis</span>
+
+        <div class="trail">
+          <p class="trail-label">Source trail</p>
+          <div class="trail-entry">
+            <span class="trail-time">14:02</span>
+            <span class="trail-source">news-briefing</span>
+            <span class="trail-text">Guidance call flagged softer data-center demand language vs. last quarter</span>
+          </div>
+          <div class="trail-entry">
+            <span class="trail-time">14:03</span>
+            <span class="trail-source">macro-analyst</span>
+            <span class="trail-text">Semis sector correlation to 10Y yield loosened over the trailing 20 sessions</span>
+          </div>
+          <div class="trail-entry">
+            <span class="trail-time">14:05</span>
+            <span class="trail-source">finnhub</span>
+            <span class="trail-text">Consensus EPS revised up 3% same-day — against the softer-guidance read</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="opacity: 0.5; border-style: dashed;">
+        <p class="card-title">Second signal card would render here</p>
+        <p class="card-sub">This is a mockup showing layout density with two cards — not a real second signal</p>
+      </div>
+    </main>
+
+    <aside class="chat">
+      <p class="eyebrow">Chat</p>
+      <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end;">
+        <div class="chat-bubble user">What's driving the gap on NVDA right now?</div>
+        <div class="chat-bubble">Guidance language softened on data-center demand, but consensus EPS moved up same-day — that's the contradiction. Full trail is pinned on the ledger to your left.</div>
+      </div>
+      <div class="chat-input">
+        <input type="text" placeholder="Ask a research question…" disabled />
+        <button disabled>Send</button>
+      </div>
+    </aside>
+  </div>
+</body>
+</html>

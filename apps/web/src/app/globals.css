@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+/*
+ * Tailwind v4 CSS-first config. There is no tailwind.config.js — see
+ * packages/config/src/design-tokens.ts for the documented, canonical
+ * source these values are mirrored from. Keep the two in sync by hand.
+ */
+@theme {
+  --color-dusk-ledger: #171b2e;
+  --color-slate-wire: #232a44;
+  --color-paper-fog: #e7e3d8;
+  --color-lamp-amber: #e8a33d;
+  --color-ledger-teal: #4fa6a0;
+  --color-wire-red: #c1554a;
+
+  --font-display: var(--font-display), "Georgia", serif;
+  --font-body: var(--font-body), "Helvetica Neue", sans-serif;
+  --font-mono: var(--font-mono), "Menlo", monospace;
+
+  --radius-card: 8px;
+}
+
+@layer base {
+  body {
+    @apply bg-dusk-ledger text-paper-fog font-body antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+  }
+
+  ::selection {
+    background-color: var(--color-lamp-amber);
+    color: var(--color-dusk-ledger);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
