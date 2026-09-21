@@ -358,3 +358,39 @@ turbo.json
 - The demo's one required "complete research task, question → actionable insight" (per the hackathon submission requirements) can now be either the fixture path (guaranteed to work, zero live-service risk) or the live path (the real pitch, but untested end to end) — worth deciding deliberately which one anchors the actual submission demo, ideally after live mode has been run at least once for real.
 
 **Style history:** no UI-touching design decisions this session (backend-only). Nothing to log.
+
+---
+
+## Session 4: Interactive Chat → Ledger
+**Date:** 2026-09-14
+**Goal:** Wire the chat panel to `POST /research` so the desk is actually usable end to end — type a question, get a signal card pinned to the ledger. Works identically against `SIGNAL_SOURCE=fixture` or `=live`, since that's the entire point of the `SignalSource` abstraction from Session 2. No UI design changes beyond applying Session 1's already-approved tokens to new states (loading, error, multi-watch) — nothing here needed a design checkpoint.
+
+**Why this session, not "get the live credentials and test" or "add persistence":** those were the other two options on the table. Getting live credentials isn't something buildable in this sandbox — it's a manual step for whoever has network access. Persistence is a real scope of its own (schema, RLS, migration). Wiring the chat was the largest piece of *buildable* value left, and it makes the fixture path fully demoable right now, independent of when live credentials get sorted out.
+
+**Files changed (no new files this session):**
+- `apps/web/src/components/desk-shell.tsx` — full rewrite. Now a Client Component (`"use client"`). Holds `watches`, `cardsByWatch` (keyed map, not a flat list — supports more than one watch existing in a session), `activeWatchId`, and a `messages` chat log as local state, seeded from `initialWatches`/`initialSignalCards` props. Submitting a question POSTs to `/research`, merges the returned watch + cards into state, and switches the ledger to show it. Watches in the rail are now clickable (`<button>`, was a plain `<div>`) to switch which one's shown. Stale "Live sources land in Session 3" copy removed.
+- `apps/web/src/app/(desk)/desk/page.tsx` — props renamed `watches`/`signalCards` → `initialWatches`/`initialSignalCards`, matching that DeskShell now owns the data after first load.
+- `apps/web/src/lib/api.ts` — `API_URL` now exported (was module-private); DeskShell imports it directly for the client-side fetch. Doc comment updated: this is the first session where a browser, not just the Next.js server, calls apps/api directly — Session 1's CORS middleware (`WEB_ORIGIN`) was written for this moment and had never actually been exercised until now.
+
+**Current full file tree:** unchanged from Session 3's — this session only edited existing files, see list there.
+
+**Dependencies:** none added.
+
+**Supabase schema state:** unchanged — still no custom tables. Worth restating plainly now that it's more visible: refreshing the desk page after asking questions in chat loses everything asked — `watches`/`cardsByWatch` are React state, gone on reload. This was already true of `LiveSignalSource` since Session 3; Session 4 just makes it obvious in the UI instead of theoretical.
+
+**Env vars required:** unchanged from Session 3.
+
+**API endpoints live:** unchanged from Session 3 (`GET /health`, `GET /watches`, `GET /watches/:watchId/signals`, `POST /research`, `POST /auth/sign-out`) — this session is a consumer of `POST /research`, not a new endpoint.
+
+**Known stubs/mocks/TODOs:**
+- **Everything from Session 3 about live-mode being unverified still applies.** This session doesn't change that risk at all — it just means that once `BITGET_SIGNAL_MCP_URL`/`ANTHROPIC_API_KEY` are real, the chat UI is already there to exercise it with zero further UI work.
+- **No loading/streaming feedback beyond a static "Checking the wire…" bubble.** A live research call can involve several tool-use turns (up to `MAX_TURNS = 8`) against a real LLM — that could take a while, and the UI currently gives no indication of progress within that wait, just a spinner-less static message. Worth revisiting once live mode is actually tested and its typical latency is known.
+- **No way to delete/dismiss a watch from the rail**, and no cap on how many can pile up in one session — fine for a demo, would need attention for anything longer-lived.
+- **No input validation beyond a client-side non-empty check** — the same trim-and-check `POST /research` already does server-side, just duplicated so the Send button disables correctly. Not a security boundary, just UX.
+- **`crypto.randomUUID()` used client-side for chat message keys** — fine in any modern browser over HTTPS or localhost; would need a fallback if this ever needs to run in a non-secure context, which it shouldn't for a deployed app.
+
+**Assumptions carried into next session:**
+- The product is now demoable end to end in fixture mode: sign up → sign in → ask a question → see it land on the ledger with a full source trail. That's the "complete research task, question → actionable insight" the submission requires — it exists now, even before live mode is ever tested.
+- Next real milestones, in rough priority order: (1) get real `BITGET_SIGNAL_MCP_URL` + `ANTHROPIC_API_KEY` and run `SIGNAL_SOURCE=live` for the first time ever, outside this sandbox; (2) decide on persistence if the submission wants a watch to survive a page refresh; (3) polish pass on the demo scenario specifically for the recording/screenshot the submission needs. None of these were started this session — flagging rather than assuming which one comes next.
+
+**Style history:** no new tokens or layout decisions — new UI states (chat bubbles, clickable watch rail items, loading/error styling) all compose Session 1's existing palette and radius tokens. Nothing to log.
